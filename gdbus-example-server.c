@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <gio/gio.h>
+#include <glib.h>
+#include <glib/gprintf.h>
 
 #ifdef G_OS_UNIX
 #include <gio/gunixfdlist.h>
@@ -20,6 +22,11 @@ static const gchar introspection_xml[] =
   "    <method name='HelloWorld'>"
   "      <annotation name='org.gtk.GDBus.Annotation' value='OnMethod'/>"
   "      <arg type='s' name='greeting' direction='in'/>"
+  "      <arg type='s' name='response' direction='out'/>"
+  "    </method>"
+  "  <method name='ExampleTuple'>"
+  "      <annotation name='org.gtk.GDBus.Annotation' value='OnMethod'/>"
+  "      <arg type='s' name='data' direction='in'/>"
   "      <arg type='s' name='response' direction='out'/>"
   "    </method>"
   "    <method name='EmitSignal'>"
@@ -94,6 +101,49 @@ handle_method_call (GDBusConnection       *connection,
           g_dbus_method_invocation_return_value (invocation,
                                                  g_variant_new ("(s)", response));
           g_free (response);
+        }
+    }
+  else if (g_strcmp0 (method_name, "ExampleTuple") == 0)
+    {
+      //const int value;
+      const gchar *cadena;
+
+      g_variant_get(parameters, "(&s)", &cadena);
+      
+
+      if (g_strcmp0 (cadena, "Return Unregistered") == 0)
+        {
+          g_dbus_method_invocation_return_error (invocation,
+                                                 G_IO_ERROR,
+                                                 G_IO_ERROR_FAILED_HANDLED,
+                                                 "As requested, here's a GError not registered (G_IO_ERROR_FAILED_HANDLED)");
+        }
+      else if (g_strcmp0 (cadena, "Return Registered") == 0)
+        {
+          g_dbus_method_invocation_return_error (invocation,
+                                                 G_DBUS_ERROR,
+                                                 G_DBUS_ERROR_MATCH_RULE_NOT_FOUND,
+                                                 "As requested, here's a GError that is registered (G_DBUS_ERROR_MATCH_RULE_NOT_FOUND)");
+        }
+      else if (g_strcmp0 (cadena, "Return Raw") == 0)
+        {
+          g_dbus_method_invocation_return_dbus_error (invocation,
+                                                      "org.gtk.GDBus.SomeErrorName",
+                                                      "As requested, here's a raw D-Bus error");
+        }
+      else
+        {
+          gchar *response;
+          response = g_strdup_printf ("You greeted me with '%s'. Thanks!", cadena);
+          
+          g_dbus_method_invocation_return_value (invocation,
+                                                 g_variant_new ("(s)", response));
+          
+		  g_printf("%s\n",response);
+		  
+		  g_free (response);
+		  
+		  
         }
     }
   else if (g_strcmp0 (method_name, "EmitSignal") == 0)
@@ -354,7 +404,8 @@ on_name_lost (GDBusConnection *connection,
               const gchar     *name,
               gpointer         user_data)
 {
-  exit (1);
+    g_print("Lost\n");
+    exit (1);
 }
 
 int

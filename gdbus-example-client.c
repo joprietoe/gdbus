@@ -3,6 +3,8 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <glib.h>
+#include <glib/gprintf.h>
 
 #include <time.h>
 
@@ -10,31 +12,35 @@
 #include <gio-unix-2.0/gio/gunixfdlist.h>
 
 /* see gdbus-example-server.c for the server implementation */
+
 static gint
-get_server_stdout (GDBusConnection  *connection,
+get_server_gvariant_stdout (GDBusConnection  *connection,
                    const gchar      *name_owner,
                    GError          **error)
 {
   GDBusMessage *method_call_message;
   GDBusMessage *method_reply_message;
-  GUnixFDList *fd_list;
+ // GUnixFDList *fd_list;
   gint fd;
-
+  const gchar * response;
+  
   fd = -1;
   method_call_message = NULL;
   method_reply_message = NULL;
 
-  method_call_message = g_dbus_message_new_method_call (name_owner,
+ method_call_message = g_dbus_message_new_method_call (name_owner,
                                                         "/org/gtk/GDBus/TestObject",
                                                         "org.gtk.GDBus.TestInterface",
-                                                        "GimmeStdout");
-  method_reply_message = g_dbus_connection_send_message_with_reply_sync (connection,
-                                                                         method_call_message,
-                                                                         G_DBUS_SEND_MESSAGE_FLAGS_NONE,
-                                                                         -1,
-                                                                         NULL, /* out_serial */
-                                                                         NULL, /* cancellable */
-                                                                         error);
+                                                        "ExampleTuple");
+ 
+g_dbus_message_set_body (method_call_message, g_variant_new ("(s)", "<foo> Hello Julio! </foo>"));  
+method_reply_message = g_dbus_connection_send_message_with_reply_sync (connection,
+                                                                       method_call_message,
+                                                                       G_DBUS_SEND_MESSAGE_FLAGS_NONE,
+                                                                       -1,
+                                                                       NULL, /* out_serial */
+                                                                       NULL, /* cancellable */
+                                                                       error);
   if (method_reply_message == NULL)
       goto out;
 
@@ -44,8 +50,13 @@ get_server_stdout (GDBusConnection  *connection,
       goto out;
     }
 
-  fd_list = g_dbus_message_get_unix_fd_list (method_reply_message);
-  fd = g_unix_fd_list_get (fd_list, 0, error);
+fd = 1;
+response = g_dbus_message_get_arg0(method_reply_message);
+
+g_printf("Response: %s\n",response);
+
+  //fd_list = g_dbus_message_get_unix_fd_list (method_reply_message);
+  //fd = g_unix_fd_list_get (fd_list, 0, error);
 
  out:
   g_object_unref (method_call_message);
@@ -53,6 +64,8 @@ get_server_stdout (GDBusConnection  *connection,
 
   return fd;
 }
+
+
 
 static void
 on_name_appeared (GDBusConnection *connection,
@@ -64,10 +77,11 @@ on_name_appeared (GDBusConnection *connection,
   GError *error;
 
   error = NULL;
-  fd = get_server_stdout (connection, name_owner, &error);
+  //fd = get_server_stdout (connection, name_owner, &error);
+  fd = get_server_gvariant_stdout (connection, name_owner, &error);
   if (fd == -1)
     {
-      g_printerr ("Error invoking GimmeStdout(): %s\n",
+      g_printerr ("Error invoking ExampleTuple: %s\n",
                   error->message);
       g_error_free (error);
       exit (1);
@@ -85,7 +99,7 @@ on_name_appeared (GDBusConnection *connection,
                 "%c",
                 localtime (&now));
 
-      str = g_strdup_printf ("On %s, gdbus-example-unix-fd-client with pid %d was here!\n",
+      str = g_strdup_printf ("OK, send message On %s, gdbus-example-unix-fd-client with pid %d was here!\n",
                              now_buf,
                              (gint) getpid ());
       len = strlen (str);
